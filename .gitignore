@@ -11,3 +11,6 @@ target/
 
 # IDEA
 .idea
+
+# Generated code
+code/src/mutter_dbus.rs
