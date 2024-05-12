@@ -1,0 +1,8 @@
+[package]
+name = "mutter-display-presets"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = "1.0.201"
+dbus = "0.9.7"
