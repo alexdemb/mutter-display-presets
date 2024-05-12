@@ -6,3 +6,7 @@ edition = "2021"
 [dependencies]
 serde = "1.0.201"
 dbus = "0.9.7"
+dbus-tree = "0.9.2"
+
+[build-dependencies]
+dbus-codegen = "0.11.0"
