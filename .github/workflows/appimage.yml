@@ -1,0 +1,33 @@
+name: AppImage build
+
+on:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install dependencies
+      run: sudo apt install -y libdbus-1-dev
+    - name: Build
+      run: cd code && cargo build --verbose
+    - name: Run tests
+      run: cd code && cargo test --verbose
+    - name: Install AppImage tool
+      run: |
+        sudo apt install -y binutils coreutils desktop-file-utils fakeroot fuse libgdk-pixbuf2.0-dev patchelf python3-pip python3-setuptools squashfs-tools strace util-linux zsync
+        sudo wget https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O /usr/local/bin/appimagetool
+        sudo chmod +x /usr/local/bin/appimagetool
+        
+        cd code && cargo install cargo-appimage
+    - name: Build AppImage
+      run: cd code && cargo appimage
+    - uses: actions/upload-artifact@v2
+      with:
+        name: AppImage
