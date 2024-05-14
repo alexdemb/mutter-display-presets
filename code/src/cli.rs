@@ -1,3 +1,4 @@
+use std::error::Error;
 use super::{config_file, defaults, mutter};
 use crate::model::Preset;
 use clap::{arg, command, Arg, ArgAction};
@@ -63,6 +64,36 @@ impl Command for SaveCommand {
     }
 }
 
+struct ApplyCommand {
+    name: String,
+    persistent: bool
+}
+
+impl Command for ApplyCommand {
+    fn execute(&self, options: &GenericOptions) -> Result<(), Box<dyn Error>> {
+        info!("Applying preset '{}'", self.name);
+
+        let timeout = &options.timeout;
+        let config_path = &options.config_path;
+
+        let configuration = config_file::read_config(config_path)?;
+
+        match configuration.get_preset(&self.name) {
+            Some(preset) => {
+                let current_state = mutter::get_current_state(timeout)?;
+                let serial = current_state.serial;
+
+                mutter::apply_monitors_config(serial, self.persistent, &preset.display_config, timeout)?;
+
+                info!("Preset '{}' applied.", self.name)
+            },
+            None => Err(format!("Preset '{}' was not found.", &self.name))?
+        }
+
+        Ok(())
+    }
+}
+
 pub struct Cli {
     pub command: Box<dyn Command>,
     pub options: GenericOptions,
@@ -74,7 +105,7 @@ impl Cli {
             .subcommand_required(true)
             .propagate_version(true)
             .arg_required_else_help(true)
-            .subcommand(
+            .subcommands([
                 clap::Command::new("save")
                     .about("Save current display configuration as a preset")
                     .arg(
@@ -89,8 +120,22 @@ impl Cli {
                             .help("Override existing preset with the same name if exist")
                             .action(ArgAction::SetTrue)
                             .required(false)
-                    )
-            )
+                    ),
+                clap::Command::new("apply")
+                    .about("Apply display configuration from specific preset")
+                    .arg(
+                        arg!([NAME])
+                            .required(true)
+                            .help("Preset name")
+                    ).arg(
+                    Arg::new("persistent")
+                        .short('p')
+                        .long("persistent")
+                        .help("Persistent mode. Applied configuration will remain active after Mutter restart. Requires manual confirmation from user.")
+                        .action(ArgAction::SetTrue)
+                        .required(false)
+                )
+            ])
             .arg(Arg::new("verbose")
                 .short('v')
                 .long("verbose")
@@ -113,7 +158,6 @@ impl Cli {
                 .help("Timeout (in seconds) for communication with Mutter D-Bus interface. 10 seconds by default")
                 .action(ArgAction::Set)
             )
-
             .get_matches();
 
         let command: Box<dyn Command> = match matches.subcommand() {
@@ -121,7 +165,11 @@ impl Cli {
                 name: sub_matches.get_one::<String>("NAME").unwrap().to_string(),
                 force: sub_matches.get_flag("force"),
             }),
-            _ => panic!("Unknown command"),
+            Some(("apply", sub_matches)) => Box::new(ApplyCommand {
+                name: sub_matches.get_one::<String>("NAME").unwrap().to_string(),
+                persistent: sub_matches.get_flag("persistent"),
+            }),
+            _ => Err("Unknown command")?
         };
 
         let options = GenericOptions {
