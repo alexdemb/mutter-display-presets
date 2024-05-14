@@ -9,6 +9,7 @@ mod defaults;
 mod model;
 mod mutter;
 mod mutter_dbus;
+mod out;
 
 fn main() {
     if let Ok(cli) = cli::Cli::parse() {

@@ -1,5 +1,5 @@
-use super::{config_file, defaults, mutter};
-use crate::model::Preset;
+use super::model::Preset;
+use super::{config_file, defaults, mutter, out};
 use clap::{arg, command, Arg, ArgAction};
 use log::{debug, info};
 use std::error::Error;
@@ -201,6 +201,27 @@ impl Command for RenameCommand {
     }
 }
 
+struct ShowCommand {
+    name: String,
+}
+
+impl Command for ShowCommand {
+    fn execute(&self, options: &GenericOptions) -> Result<(), Box<dyn Error>> {
+        info!("Printing information about preset '{}'", self.name);
+
+        let configuration = config_file::read_config(&options.config_path)?;
+
+        match configuration.get_preset(&self.name) {
+            Some(preset) => {
+                out::print_preset(preset);
+            }
+            None => Err(format!("Preset '{}' was not found", self.name))?,
+        }
+
+        Ok(())
+    }
+}
+
 pub struct Cli {
     pub command: Box<dyn Command>,
     pub options: GenericOptions,
@@ -269,7 +290,14 @@ impl Cli {
                             .help("Override existing preset with the same name if exist")
                             .action(ArgAction::SetTrue)
                             .required(false)
-                    )
+                    ),
+                    clap::Command::new("show")
+                        .about("Print information about preset")
+                        .arg(
+                            arg!([NAME])
+                                .required(true)
+                                .help("Preset name")
+                        ),
             ])
             .arg(Arg::new("verbose")
                 .short('v')
@@ -315,6 +343,9 @@ impl Cli {
                     .unwrap()
                     .to_string(),
                 force: sub_matches.get_flag("force"),
+            }),
+            Some(("show", sub_matches)) => Box::new(ShowCommand {
+                name: sub_matches.get_one::<String>("NAME").unwrap().to_string(),
             }),
             _ => Err("Unknown command")?,
         };
