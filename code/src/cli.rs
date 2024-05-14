@@ -1,8 +1,8 @@
-use std::error::Error;
 use super::{config_file, defaults, mutter};
 use crate::model::Preset;
 use clap::{arg, command, Arg, ArgAction};
 use log::{debug, info};
+use std::error::Error;
 use std::time::Duration;
 
 #[derive(Debug)]
@@ -66,7 +66,7 @@ impl Command for SaveCommand {
 
 struct ApplyCommand {
     name: String,
-    persistent: bool
+    persistent: bool,
 }
 
 impl Command for ApplyCommand {
@@ -83,19 +83,23 @@ impl Command for ApplyCommand {
                 let current_state = mutter::get_current_state(timeout)?;
                 let serial = current_state.serial;
 
-                mutter::apply_monitors_config(serial, self.persistent, &preset.display_config, timeout)?;
+                mutter::apply_monitors_config(
+                    serial,
+                    self.persistent,
+                    &preset.display_config,
+                    timeout,
+                )?;
 
                 info!("Preset '{}' applied.", self.name)
-            },
-            None => Err(format!("Preset '{}' was not found.", &self.name))?
+            }
+            None => Err(format!("Preset '{}' was not found.", &self.name))?,
         }
 
         Ok(())
     }
 }
 
-struct ListCommand {
-}
+struct ListCommand {}
 
 impl Command for ListCommand {
     fn execute(&self, options: &GenericOptions) -> Result<(), Box<dyn Error>> {
@@ -112,7 +116,7 @@ impl Command for ListCommand {
 }
 
 struct DeleteCommand {
-    name: String
+    name: String,
 }
 
 impl Command for DeleteCommand {
@@ -121,16 +125,78 @@ impl Command for DeleteCommand {
 
         let mut configuration = config_file::read_config(&options.config_path)?;
 
-        let preset_pos = configuration.presets.iter().position(|p| p.name == self.name);
+        let preset_pos = configuration
+            .presets
+            .iter()
+            .position(|p| p.name == self.name);
 
         match preset_pos {
-            Some(pos) => { configuration.presets.remove(pos); }
-            None => Err(format!("Preset '{}' was not found", self.name))?
+            Some(pos) => {
+                configuration.presets.remove(pos);
+            }
+            None => Err(format!("Preset '{}' was not found", self.name))?,
         }
 
         config_file::write_config(&options.config_path, &configuration)?;
 
         info!("Preset '{}' has been deleted", self.name);
+        Ok(())
+    }
+}
+
+struct RenameCommand {
+    name: String,
+    new_name: String,
+    force: bool,
+}
+
+impl Command for RenameCommand {
+    fn execute(&self, options: &GenericOptions) -> Result<(), Box<dyn Error>> {
+        info!("Renaming preset '{}' to '{}'", self.name, self.new_name);
+
+        if self.name == self.new_name {
+            Err("Source and target names are same. Nothing to do.")?
+        }
+
+        let mut configuration = config_file::read_config(&options.config_path)?;
+
+        let preset_pos = configuration
+            .presets
+            .iter()
+            .position(|p| p.name == self.name);
+
+        match preset_pos {
+            Some(pos) => {
+                let target_preset_pos = configuration
+                    .presets
+                    .iter()
+                    .position(|p| p.name == self.new_name);
+
+                match target_preset_pos {
+                    Some(target_pos) if self.force => {
+                        let preset = configuration.presets.get_mut(pos).unwrap();
+                        preset.name = self.new_name.clone();
+                        configuration.presets.remove(target_pos);
+                    }
+                    Some(_) => Err(format!(
+                        "Preset with name '{}' already exist. To override use --force option",
+                        self.new_name
+                    ))?,
+                    None => {
+                        let preset = configuration.presets.get_mut(pos).unwrap();
+                        preset.name = self.new_name.clone();
+                    }
+                }
+            }
+            None => Err(format!("Preset '{}' was not found", self.name))?,
+        }
+
+        config_file::write_config(&options.config_path, &configuration)?;
+
+        info!(
+            "Preset '{}' has been renamed to '{}'",
+            self.name, self.new_name
+        );
         Ok(())
     }
 }
@@ -183,6 +249,26 @@ impl Cli {
                         arg!([NAME])
                             .required(true)
                             .help("Preset name")
+                    ),
+                clap::Command::new("rename")
+                    .about("Rename display configuration preset")
+                    .arg(
+                        arg!([NAME])
+                            .required(true)
+                            .help("Preset name")
+                    )
+                    .arg(
+                        arg!([NEW_NAME])
+                            .required(true)
+                            .help("Preset new name")
+                    )
+                    .arg(
+                        Arg::new("force")
+                            .short('f')
+                            .long("force")
+                            .help("Override existing preset with the same name if exist")
+                            .action(ArgAction::SetTrue)
+                            .required(false)
                     )
             ])
             .arg(Arg::new("verbose")
@@ -218,11 +304,19 @@ impl Cli {
                 name: sub_matches.get_one::<String>("NAME").unwrap().to_string(),
                 persistent: sub_matches.get_flag("persistent"),
             }),
-            Some(("list", _)) => Box::new(ListCommand{}),
+            Some(("list", _)) => Box::new(ListCommand {}),
             Some(("delete", sub_matches)) => Box::new(DeleteCommand {
-                name: sub_matches.get_one::<String>("NAME").unwrap().to_string()
+                name: sub_matches.get_one::<String>("NAME").unwrap().to_string(),
             }),
-            _ => Err("Unknown command")?
+            Some(("rename", sub_matches)) => Box::new(RenameCommand {
+                name: sub_matches.get_one::<String>("NAME").unwrap().to_string(),
+                new_name: sub_matches
+                    .get_one::<String>("NEW_NAME")
+                    .unwrap()
+                    .to_string(),
+                force: sub_matches.get_flag("force"),
+            }),
+            _ => Err("Unknown command")?,
         };
 
         let options = GenericOptions {
