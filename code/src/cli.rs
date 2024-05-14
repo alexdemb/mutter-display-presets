@@ -99,7 +99,7 @@ struct ListCommand {
 
 impl Command for ListCommand {
     fn execute(&self, options: &GenericOptions) -> Result<(), Box<dyn Error>> {
-        debug!("List available presets");
+        info!("List available presets");
 
         let configuration = config_file::read_config(&options.config_path)?;
 
@@ -107,6 +107,30 @@ impl Command for ListCommand {
             println!("{}", preset.name);
         }
 
+        Ok(())
+    }
+}
+
+struct DeleteCommand {
+    name: String
+}
+
+impl Command for DeleteCommand {
+    fn execute(&self, options: &GenericOptions) -> Result<(), Box<dyn Error>> {
+        info!("Deleting preset {}", self.name);
+
+        let mut configuration = config_file::read_config(&options.config_path)?;
+
+        let preset_pos = configuration.presets.iter().position(|p| p.name == self.name);
+
+        match preset_pos {
+            Some(pos) => { configuration.presets.remove(pos); }
+            None => Err(format!("Preset '{}' was not found", self.name))?
+        }
+
+        config_file::write_config(&options.config_path, &configuration)?;
+
+        info!("Preset '{}' has been deleted", self.name);
         Ok(())
     }
 }
@@ -139,7 +163,7 @@ impl Cli {
                             .required(false)
                     ),
                 clap::Command::new("apply")
-                    .about("Apply display configuration from specific preset")
+                    .about("Apply display configuration from specified preset")
                     .arg(
                         arg!([NAME])
                             .required(true)
@@ -152,7 +176,14 @@ impl Cli {
                         .action(ArgAction::SetTrue)
                         .required(false)
                 ),
-                clap::Command::new("list").about("List available presets")
+                clap::Command::new("list").about("List available presets"),
+                clap::Command::new("delete")
+                    .about("Delete preset with specified name")
+                    .arg(
+                        arg!([NAME])
+                            .required(true)
+                            .help("Preset name")
+                    )
             ])
             .arg(Arg::new("verbose")
                 .short('v')
@@ -188,6 +219,9 @@ impl Cli {
                 persistent: sub_matches.get_flag("persistent"),
             }),
             Some(("list", _)) => Box::new(ListCommand{}),
+            Some(("delete", sub_matches)) => Box::new(DeleteCommand {
+                name: sub_matches.get_one::<String>("NAME").unwrap().to_string()
+            }),
             _ => Err("Unknown command")?
         };
 
