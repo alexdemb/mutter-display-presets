@@ -127,27 +127,38 @@ pub fn get_current_state(
     Ok(DisplayConfigState::from(&current_state))
 }
 
-pub fn apply_monitors_config(serial: u32, persistent: bool, state: &DisplayConfigState, timeout: &Duration) -> Result<(), Box<dyn std::error::Error>> {
+pub fn apply_monitors_config(
+    serial: u32,
+    persistent: bool,
+    state: &DisplayConfigState,
+    timeout: &Duration,
+) -> Result<(), Box<dyn std::error::Error>> {
     let conn = Connection::new_session()?;
     let proxy: Proxy<_> = conn.with_proxy(DESTINATION, PATH, timeout.clone());
 
     let method = if persistent { 2 } else { 1 };
-    let mut logical_monitors: Vec<(i32, i32, f64, u32, bool, Vec<(&str, &str, PropMap)>)> = Vec::new();
+    let mut logical_monitors: Vec<(i32, i32, f64, u32, bool, Vec<(&str, &str, PropMap)>)> =
+        Vec::new();
 
     for lm in &state.logical_monitors {
         let mut modes: Vec<(&str, &str, PropMap)> = Vec::new();
 
-        let connectors: Vec<&String> = lm.monitors.iter()
-            .map(|m| { &m.connector })
-            .collect();
+        let connectors: Vec<&String> = lm.monitors.iter().map(|m| &m.connector).collect();
 
         for connector in connectors {
-            if let Some(monitor) = state.monitors.iter().find(|m| m.monitor_info.connector == *connector) {
+            if let Some(monitor) = state
+                .monitors
+                .iter()
+                .find(|m| m.monitor_info.connector == *connector)
+            {
                 if let Some(current_mode_id) = monitor.get_current_mode_id() {
-                    modes.push((connector.as_str(), &current_mode_id.as_str(), PropMap::new()));
+                    modes.push((
+                        connector.as_str(),
+                        &current_mode_id.as_str(),
+                        PropMap::new(),
+                    ));
                 }
             }
-
         }
 
         logical_monitors.push((lm.x, lm.y, lm.scale, lm.transform, lm.primary, modes));

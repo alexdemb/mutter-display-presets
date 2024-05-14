@@ -9,11 +9,9 @@ pub struct Configuration {
 }
 
 impl Configuration {
-
     pub fn get_preset(&self, name: &str) -> Option<&Preset> {
-        self.presets.iter().find(|p|p.name.as_str() == name)
+        self.presets.iter().find(|p| p.name.as_str() == name)
     }
-
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -57,12 +55,12 @@ pub struct Monitor {
 }
 
 impl Monitor {
-
     pub fn get_current_mode_id(&self) -> Option<&String> {
-        self.modes.iter().find(|m| { m.properties.get("is-current").is_some_and(|v| { v == "1" }) })
-            .map(|cur_md| { &cur_md.id })
+        self.modes
+            .iter()
+            .find(|m| m.properties.get("is-current").is_some_and(|v| v == "1"))
+            .map(|cur_md| &cur_md.id)
     }
-
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -87,8 +85,8 @@ mod tests {
                 serial,
                 monitors: vec![],
                 logical_monitors: vec![],
-                properties: Props::new()
-            }
+                properties: Props::new(),
+            },
         }
     }
 
@@ -100,8 +98,8 @@ mod tests {
         let conf = Configuration {
             presets: vec![
                 generate_preset_with_name("Preset1", 1),
-                generate_preset_with_name("Preset2", 2)
-            ]
+                generate_preset_with_name("Preset2", 2),
+            ],
         };
 
         assert_eq!(&preset1, conf.get_preset("Preset1").unwrap());
@@ -126,7 +124,7 @@ mod tests {
                     refresh_rate: 0.0,
                     preferred_scale: 0.0,
                     supported_scales: vec![],
-                    properties: [("is-current".to_string(), "1".to_string())].into()
+                    properties: [("is-current".to_string(), "1".to_string())].into(),
                 },
                 Mode {
                     id: "2".to_string(),
@@ -135,13 +133,12 @@ mod tests {
                     refresh_rate: 0.0,
                     preferred_scale: 0.0,
                     supported_scales: vec![],
-                    properties: HashMap::new()
-                }
+                    properties: HashMap::new(),
+                },
             ],
-            properties: HashMap::new()
+            properties: HashMap::new(),
         };
 
         assert_eq!("1", monitor.get_current_mode_id().unwrap());
     }
-
 }
