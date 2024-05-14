@@ -94,6 +94,23 @@ impl Command for ApplyCommand {
     }
 }
 
+struct ListCommand {
+}
+
+impl Command for ListCommand {
+    fn execute(&self, options: &GenericOptions) -> Result<(), Box<dyn Error>> {
+        debug!("List available presets");
+
+        let configuration = config_file::read_config(&options.config_path)?;
+
+        for preset in &configuration.presets {
+            println!("{}", preset.name);
+        }
+
+        Ok(())
+    }
+}
+
 pub struct Cli {
     pub command: Box<dyn Command>,
     pub options: GenericOptions,
@@ -134,7 +151,8 @@ impl Cli {
                         .help("Persistent mode. Applied configuration will remain active after Mutter restart. Requires manual confirmation from user.")
                         .action(ArgAction::SetTrue)
                         .required(false)
-                )
+                ),
+                clap::Command::new("list").about("List available presets")
             ])
             .arg(Arg::new("verbose")
                 .short('v')
@@ -169,6 +187,7 @@ impl Cli {
                 name: sub_matches.get_one::<String>("NAME").unwrap().to_string(),
                 persistent: sub_matches.get_flag("persistent"),
             }),
+            Some(("list", _)) => Box::new(ListCommand{}),
             _ => Err("Unknown command")?
         };
 
