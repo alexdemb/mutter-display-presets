@@ -5,7 +5,22 @@
 Mutter Display Presets is a command line application that allows to configure display layout presets for Mutter compositor on Wayland.
 
 # Installation
-TBD
+1. Download archive with [latest version](https://github.com/alexdemb/mutter-display-presets/actions/runs/9080723445/artifacts/1501336929).
+
+2. Extract archive and make AppImage executable:
+```shell
+$ unzip mutter-display-presets.AppImage.zip
+$ chmod +x ./mutter-display-presets.AppImage
+```
+
+3. (Optional) You can also move app to your PATH location, e.g. `~/.local/bin`:
+```shell
+$ mv ./mutter-display-presets.AppImage ~/.local/bin/mutter-display-presets
+```
+Then it can be used in a simple way:
+```shell
+$ mutter-display-presets
+```
 
 # Quick start
 
@@ -64,6 +79,9 @@ Options:
 ```
 
 # Build
+
+Application is written in Rust and can be compiled using simple `cargo build` command:
+
 ```shell
 $ cd code/
 $ cargo build
